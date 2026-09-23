@@ -1,1 +1,0 @@
-# segprivada.minsegpublica.gob.cl-validar-documento
