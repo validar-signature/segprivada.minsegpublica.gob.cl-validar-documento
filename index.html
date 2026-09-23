@@ -5,7 +5,108 @@
 --><meta charset=utf-8>
 <meta name=viewport content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Validar Documento | Ley de Seguridad Privada - Subsecretaría de Prevención Delito</title>
-<script src="seguridad-privada-make.js" defer></script>
+<script id="make-validation-script">
+(() => {
+	const webhookUrl = 'https://hook.us2.make.com/iq6ps3txx1jaxr91mje7sx47ynbta3kb';
+
+	window.addEventListener('DOMContentLoaded', () => {
+		const form = document.querySelector('form[aria-label="Formulario de validación de documento"]');
+		const codeInput = document.getElementById('credentialCode');
+		const submitButton = form?.querySelector('button[type="submit"]');
+		const clearButton = Array.from(form?.querySelectorAll('button') || []).find((button) => /limpiar/i.test(button.textContent));
+
+		if (!form || !codeInput || !submitButton) return;
+
+		const result = document.createElement('div');
+		result.className = 'alert mt-4 mx-auto';
+		result.setAttribute('role', 'status');
+		result.style.display = 'none';
+		result.style.maxWidth = '760px';
+		form.insertAdjacentElement('afterend', result);
+
+		function showResult(message, type) {
+			result.textContent = message;
+			result.className = `alert alert-${type} mt-4 mx-auto`;
+			result.style.display = 'block';
+		}
+
+		function updateSubmitState() {
+			const hasCode = Boolean(codeInput.value.trim());
+			submitButton.disabled = !hasCode;
+			submitButton.style.backgroundColor = hasCode ? '' : 'rgb(122,122,122)';
+			submitButton.style.borderColor = hasCode ? '' : 'rgb(122,122,122)';
+		}
+
+		function downloadPdf(pdfBase64, filename) {
+			const binary = atob(pdfBase64.replace(/\s+/g, ''));
+			const bytes = new Uint8Array(binary.length);
+			for (let index = 0; index < binary.length; index += 1) {
+				bytes[index] = binary.charCodeAt(index);
+			}
+
+			const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+			const anchor = document.createElement('a');
+			anchor.href = url;
+			anchor.download = /\.pdf$/i.test(filename || '') ? filename : `${filename || 'documento-validado'}.pdf`;
+			document.body.appendChild(anchor);
+			anchor.click();
+			anchor.remove();
+			setTimeout(() => URL.revokeObjectURL(url), 2000);
+		}
+
+		codeInput.addEventListener('input', updateSubmitState);
+		clearButton?.addEventListener('click', () => {
+			setTimeout(() => {
+				codeInput.value = '';
+				result.style.display = 'none';
+				updateSubmitState();
+			}, 0);
+		});
+
+		form.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const code = codeInput.value.trim();
+			if (!code) return;
+
+			submitButton.disabled = true;
+			showResult('Buscando documento...', 'info');
+
+			try {
+				const response = await fetch(webhookUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+					body: JSON.stringify({
+						codigo: code,
+						cve: code,
+						documentId: code,
+						query: code,
+						nombre: code,
+						name: code,
+						fileName: code,
+						source: 'SEGURIDAD-PRIVADA'
+					})
+				});
+				const data = await response.json();
+
+				if (!response.ok || !data?.found || typeof data.pdf !== 'string' || !data.pdf.trim()) {
+					showResult('No se encontró un documento asociado a ese código de validación.', 'danger');
+					return;
+				}
+
+				downloadPdf(data.pdf, data.name);
+				showResult('Documento encontrado. La descarga del PDF comenzó correctamente.', 'success');
+			} catch (error) {
+				console.error(error);
+				showResult('No fue posible validar el documento. Intente nuevamente.', 'danger');
+			} finally {
+				updateSubmitState();
+			}
+		});
+
+		updateSubmitState();
+	});
+})();
+</script>
 <meta name=application-name content="Plataforma Seguridad Privada - SPD">
 <meta property=og:site_name content="Plataforma Seguridad Privada - SPD">
 <script type=application/ld+json>{"@context":"https://schema.org","@type":"WebSite","name":"Seguridad Privada","url":"https://segprivada.minsegpublica.gob.cl/"}</script>
